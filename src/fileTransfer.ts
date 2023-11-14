@@ -1,7 +1,7 @@
 import {Context, Contract, Info, Returns, Transaction} from 'fabric-contract-api';
 import stringify from 'json-stringify-deterministic';
 import sortKeysRecursive from 'sort-keys-recursive';
-import {File} from './asset';
+import {File} from './file';
 import * as fs from 'fs';
 import * as cryptojs from "crypto-js";
 
