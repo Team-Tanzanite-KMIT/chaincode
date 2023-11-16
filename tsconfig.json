@@ -1,5 +1,5 @@
 {
-  "compilerOptions": {
+    "compilerOptions": {
         "experimentalDecorators": true,
         "emitDecoratorMetadata": true,
         "outDir": "dist",
@@ -10,10 +10,5 @@
         "declaration": true,
         "sourceMap": true
     },
-  "include": [
-    "./src/**/*"
-  ],
-  "exclude": [
-    "./src/**/*.spec.ts"
-  ]
+  
 }
