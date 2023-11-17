@@ -5,7 +5,7 @@
 import {Context, Contract, Info, Returns, Transaction} from 'fabric-contract-api';
 import stringify from 'json-stringify-deterministic';
 import sortKeysRecursive from 'sort-keys-recursive';
-import {Asset} from './file';
+import {Asset} from './asset';
 
 @Info({title: 'AssetTransfer', description: 'Smart contract for trading assets'})
 export class AssetTransferContract extends Contract {
@@ -63,8 +63,8 @@ export class AssetTransferContract extends Contract {
             // use convetion of alphabetic order
             // we insert data in alphabetic order using 'json-stringify-deterministic' and 'sort-keys-recursive'
             // when retrieving data, in any lang, the order of data will be the same and consequently also the corresonding hash
-                await ctx.stub.putState(asset.ID, Buffer.from(stringify(sortKeysRecursive(asset))));
-                console.info(`Asset ${asset.ID} initialized`);
+            await ctx.stub.putState(asset.ID, Buffer.from(stringify(sortKeysRecursive(asset))));
+            console.info(`Asset ${asset.ID} initialized`);
         }
     }
 
