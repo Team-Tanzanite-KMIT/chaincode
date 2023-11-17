@@ -7,7 +7,33 @@ import stringify from 'json-stringify-deterministic';
 import sortKeysRecursive from 'sort-keys-recursive';
 import {Asset} from './asset';
 
-@Info({title: 'AssetTransfer', description: 'Smart contract for trading assets'})
+import fs from 'fs';
+import * as cryptojs from 'crypto-js';
+
+function getFileName(path) {
+    let pathSplits = path.split("/")
+    return pathSplits[pathSplits.length - 1].split(".")[0]
+}
+
+function loadFile(path: string, owner: string): Asset {
+    var dataBuffer = fs.readFileSync(path);
+    var data = dataBuffer.toString("base64");
+    var hash = cryptojs.SHA256(data).toString(cryptojs.enc.Base64);
+    
+    let fileName = getFileName(path);
+    // console.log(data)
+
+
+    return {
+        Owner: owner,
+        Content: data,
+        hash: hash,
+        ID: fileName,
+        fileType: "pdf"
+    }
+}
+
+@Info({title: 'AssetTransfer', description: 'Smart contract for Storing Files'})
 export class AssetTransferContract extends Contract {
 
     @Transaction()
