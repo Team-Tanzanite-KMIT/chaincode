@@ -7,20 +7,17 @@ import {Object, Property} from 'fabric-contract-api';
 @Object()
 export class Asset {
     @Property()
-    public docType?: string;
+    public fileType: string;
 
     @Property()
     public ID: string;
 
     @Property()
-    public Color: string;
-
-    @Property()
-    public Size: number;
+    public hash: string;
 
     @Property()
     public Owner: string;
 
     @Property()
-    public AppraisedValue: number;
+    public Content: string;
 }
