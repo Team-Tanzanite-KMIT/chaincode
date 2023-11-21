@@ -2,181 +2,92 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 // Deterministic JSON.stringify()
-import {Context, Contract, Info, Returns, Transaction} from 'fabric-contract-api';
+import { Context, Contract, Info, Returns, Transaction } from 'fabric-contract-api';
 import stringify from 'json-stringify-deterministic';
 import sortKeysRecursive from 'sort-keys-recursive';
-import {Asset} from './asset';
+import { Asset } from './asset';
 
 import fs from 'fs';
 import * as cryptojs from 'crypto-js';
 
-function getFileName(path) {
-    let pathSplits = path.split("/")
-    return pathSplits[pathSplits.length - 1].split(".")[0]
+function getFileNamenExt(name) {
+    let nameSplits = name.split(".")
+    return [nameSplits[0], nameSplits[1]]
 }
 
-function loadFile(path: string, owner: string): Asset {
-    var dataBuffer = fs.readFileSync(path);
-    var data = dataBuffer.toString("base64");
-    var hash = cryptojs.SHA256(data).toString(cryptojs.enc.Base64);
-    
-    let fileName = getFileName(path);
+function loadFile(fileName: string, content: string, owner: string): Asset {
+    // var dataBuffer = fs.readFileSync(path);
+    // var dataBuffer = Buffer.from("testData");
+    // var data = dataBuffer.toString("base64");
+    var hash = cryptojs.SHA256(content).toString(cryptojs.enc.Base64);
+
+    // let fileName = getFileName(path);
     // console.log(data)
 
+    let [name, ext] = getFileNamenExt(fileName);
 
+    if (!fileName.includes(".")) {
+        throw Error("Please provide file extension in file name.");
+    }
     return {
         Owner: owner,
-        Content: data,
+        Content: content,
         hash: hash,
-        ID: fileName,
-        fileType: "pdf"
-    }
+        ID: name,
+        fileType: ext
+    };
 }
 
-@Info({title: 'AssetTransfer', description: 'Smart contract for Storing Files'})
+
+
+@Info({ title: 'AssetTransfer', description: 'Smart contract for Storing Files' })
 export class AssetTransferContract extends Contract {
 
     @Transaction()
-    public async InitLedger(ctx: Context): Promise<void> {
-        const assets: Asset[] = [
-            {
-                ID: 'asset1',
-                Color: 'blue',
-                Size: 5,
-                Owner: 'Tomoko',
-                AppraisedValue: 300,
-            },
-            {
-                ID: 'asset2',
-                Color: 'red',
-                Size: 5,
-                Owner: 'Brad',
-                AppraisedValue: 400,
-            },
-            {
-                ID: 'asset3',
-                Color: 'green',
-                Size: 10,
-                Owner: 'Jin Soo',
-                AppraisedValue: 500,
-            },
-            {
-                ID: 'asset4',
-                Color: 'yellow',
-                Size: 10,
-                Owner: 'Max',
-                AppraisedValue: 600,
-            },
-            {
-                ID: 'asset5',
-                Color: 'black',
-                Size: 15,
-                Owner: 'Adriana',
-                AppraisedValue: 700,
-            },
-            {
-                ID: 'asset6',
-                Color: 'white',
-                Size: 15,
-                Owner: 'Michel',
-                AppraisedValue: 800,
-            },
-        ];
+    public async InitLedger(ctx: Context) {
+        // let testPath = 
+        const files: Asset[] = [
+            loadFile("os-dev.pdf", "ss", "rr"),
+            loadFile("Mathematics for Computer Science.pdf", "ss", "ss"),
+            loadFile("Introduction_to_Algorithms_Third_Edition_(2009) - 1sukCiCa-2Mvc6gd9YvsMZgeS1UXVKRFa.pdf", "ss", "tt"),
+        ]
 
-        for (const asset of assets) {
-            asset.docType = 'asset';
-            // example of how to write to world state deterministically
-            // use convetion of alphabetic order
-            // we insert data in alphabetic order using 'json-stringify-deterministic' and 'sort-keys-recursive'
-            // when retrieving data, in any lang, the order of data will be the same and consequently also the corresonding hash
-            await ctx.stub.putState(asset.ID, Buffer.from(stringify(sortKeysRecursive(asset))));
-            console.info(`Asset ${asset.ID} initialized`);
+        for (const file of files) {
+            await ctx.stub.putState(file.ID, Buffer.from(stringify(sortKeysRecursive(file))));
+            console.log(`File ${file.ID} initialized`);
         }
     }
 
-    // CreateAsset issues a new asset to the world state with given details.
     @Transaction()
-    public async CreateAsset(ctx: Context, id: string, color: string, size: number, owner: string, appraisedValue: number): Promise<void> {
-        const exists = await this.AssetExists(ctx, id);
+    public async CreateFile(ctx: Context, fileName: string, content: string, owner: string) {
+        let exists = await this.FileExists(ctx, getFileNamenExt(fileName)[0]);
+        // let fileName = getFileName(filePath)
         if (exists) {
-            throw new Error(`The asset ${id} already exists`);
+            throw new Error(`The file ${fileName} already exists.`)
         }
-
-        const asset = {
-            ID: id,
-            Color: color,
-            Size: size,
-            Owner: owner,
-            AppraisedValue: appraisedValue,
-        };
-        // we insert data in alphabetic order using 'json-stringify-deterministic' and 'sort-keys-recursive'
-        await ctx.stub.putState(id, Buffer.from(stringify(sortKeysRecursive(asset))));
+        let file: Asset = loadFile(fileName, content, owner);
     }
 
-    // ReadAsset returns the asset stored in the world state with given id.
-    @Transaction(false)
-    public async ReadAsset(ctx: Context, id: string): Promise<string> {
-        const assetJSON = await ctx.stub.getState(id); // get the asset from chaincode state
-        if (!assetJSON || assetJSON.length === 0) {
-            throw new Error(`The asset ${id} does not exist`);
-        }
-        return assetJSON.toString();
-    }
-
-    // UpdateAsset updates an existing asset in the world state with provided parameters.
-    @Transaction()
-    public async UpdateAsset(ctx: Context, id: string, color: string, size: number, owner: string, appraisedValue: number): Promise<void> {
-        const exists = await this.AssetExists(ctx, id);
-        if (!exists) {
-            throw new Error(`The asset ${id} does not exist`);
-        }
-
-        // overwriting original asset with new asset
-        const updatedAsset = {
-            ID: id,
-            Color: color,
-            Size: size,
-            Owner: owner,
-            AppraisedValue: appraisedValue,
-        };
-        // we insert data in alphabetic order using 'json-stringify-deterministic' and 'sort-keys-recursive'
-        return ctx.stub.putState(id, Buffer.from(stringify(sortKeysRecursive(updatedAsset))));
-    }
-
-    // DeleteAsset deletes an given asset from the world state.
-    @Transaction()
-    public async DeleteAsset(ctx: Context, id: string): Promise<void> {
-        const exists = await this.AssetExists(ctx, id);
-        if (!exists) {
-            throw new Error(`The asset ${id} does not exist`);
-        }
-        return ctx.stub.deleteState(id);
-    }
-
-    // AssetExists returns true when asset with given ID exists in world state.
     @Transaction(false)
     @Returns('boolean')
-    public async AssetExists(ctx: Context, id: string): Promise<boolean> {
-        const assetJSON = await ctx.stub.getState(id);
-        return assetJSON && assetJSON.length > 0;
+    public async FileExists(ctx: Context, id: string): Promise<boolean> {
+        const fileJSON = await ctx.stub.getState(id);
+        return fileJSON && fileJSON.length > 0;
     }
 
-    // TransferAsset updates the owner field of asset with given id in the world state, and returns the old owner.
-    @Transaction()
-    public async TransferAsset(ctx: Context, id: string, newOwner: string): Promise<string> {
-        const assetString = await this.ReadAsset(ctx, id);
-        const asset = JSON.parse(assetString);
-        const oldOwner = asset.Owner;
-        asset.Owner = newOwner;
-        // we insert data in alphabetic order using 'json-stringify-deterministic' and 'sort-keys-recursive'
-        await ctx.stub.putState(id, Buffer.from(stringify(sortKeysRecursive(asset))));
-        return oldOwner;
-    }
-
-    // GetAllAssets returns all assets found in the world state.
     @Transaction(false)
     @Returns('string')
-    public async GetAllAssets(ctx: Context): Promise<string> {
+    public async ReadFile(ctx: Context, id: string): Promise<string> {
+        const fileJSON = await ctx.stub.getState(id);
+        if (!fileJSON || fileJSON.length == 0) {
+            throw new Error(`The file ${id} does not exist`)
+        }
+        return fileJSON.toString()
+    }
+
+    @Transaction(false)
+    @Returns('string')
+    public async GetAllFiles(ctx: Context) {
         const allResults = [];
         // range query with empty string for startKey and endKey does an open-ended query of all assets in the chaincode namespace.
         const iterator = await ctx.stub.getStateByRange('', '');
@@ -195,5 +106,4 @@ export class AssetTransferContract extends Contract {
         }
         return JSON.stringify(allResults);
     }
-
 }
