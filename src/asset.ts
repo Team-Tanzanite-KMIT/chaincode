@@ -19,5 +19,8 @@ export class Asset {
     public Owner: string;
 
     @Property()
+    public AccessList: string[];
+
+    @Property()
     public Content: string;
 }

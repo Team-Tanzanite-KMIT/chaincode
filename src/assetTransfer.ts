@@ -34,7 +34,8 @@ function loadFile(fileName: string, content: string, owner: string): Asset {
         Content: content,
         hash: hash,
         ID: name,
-        fileType: ext
+        fileType: ext,
+        AccessList: []
     };
 }
 
@@ -66,13 +67,8 @@ export class AssetTransferContract extends Contract {
             throw new Error(`The file ${fileName} already exists.`)
         }
         let file: Asset = loadFile(fileName, content, owner);
-    }
-
-    @Transaction(false)
-    @Returns('boolean')
-    public async FileExists(ctx: Context, id: string): Promise<boolean> {
-        const fileJSON = await ctx.stub.getState(id);
-        return fileJSON && fileJSON.length > 0;
+        await ctx.stub.putState(file.ID, Buffer.from(stringify(sortKeysRecursive(file))));
+        console.log(`File ${file.ID} initialized`);
     }
 
     @Transaction(false)
@@ -83,6 +79,41 @@ export class AssetTransferContract extends Contract {
             throw new Error(`The file ${id} does not exist`)
         }
         return fileJSON.toString()
+    }
+
+    @Transaction()
+    public async UpdateAsset(ctx: Context, id: string, color: string, size: number, owner: string, appraisedValue: number): Promise<void> {
+        const exists = await this.FileExists(ctx, id);
+        if (!exists) {
+            throw new Error(`The asset ${id} does not exist`);
+        }
+
+        // overwriting original asset with new asset
+        const updatedAsset = {
+            ID: id,
+            Color: color,
+            Size: size,
+            Owner: owner,
+            AppraisedValue: appraisedValue,
+        };
+        // we insert data in alphabetic order using 'json-stringify-deterministic' and 'sort-keys-recursive'
+        return ctx.stub.putState(id, Buffer.from(stringify(sortKeysRecursive(updatedAsset))));
+    }
+
+    @Transaction()
+    public async DeleteFile(ctx: Context, id: string): Promise<void> {
+        const exists = await this.FileExists(ctx, id);
+        if (!exists) {
+            throw new Error(`The asset ${id} does not exist`);
+        }
+        return ctx.stub.deleteState(id);
+    }
+
+    @Transaction(false)
+    @Returns('boolean')
+    public async FileExists(ctx: Context, id: string): Promise<boolean> {
+        const fileJSON = await ctx.stub.getState(id);
+        return fileJSON && fileJSON.length > 0;
     }
 
     @Transaction(false)
