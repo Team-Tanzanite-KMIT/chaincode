@@ -7,8 +7,9 @@ import stringify from 'json-stringify-deterministic';
 import sortKeysRecursive from 'sort-keys-recursive';
 import { Asset } from './asset';
 
-import fs from 'fs';
+import fs, { accessSync } from 'fs';
 import * as cryptojs from 'crypto-js';
+import { assert } from 'console';
 
 function getFileNamenExt(name) {
     let nameSplits = name.split(".")
@@ -62,7 +63,6 @@ export class AssetTransferContract extends Contract {
     @Transaction()
     public async CreateFile(ctx: Context, fileName: string, content: string, owner: string) {
         let exists = await this.FileExists(ctx, getFileNamenExt(fileName)[0]);
-        // let fileName = getFileName(filePath)
         if (exists) {
             throw new Error(`The file ${fileName} already exists.`)
         }
@@ -81,23 +81,34 @@ export class AssetTransferContract extends Contract {
         return fileJSON.toString()
     }
 
+
+
     @Transaction()
-    public async UpdateAsset(ctx: Context, id: string, color: string, size: number, owner: string, appraisedValue: number): Promise<void> {
+    @Returns("string")
+    public async UpdateFile(ctx: Context, id: string, content: string, owner: string, accessList: string): Promise<string> {
         const exists = await this.FileExists(ctx, id);
         if (!exists) {
             throw new Error(`The asset ${id} does not exist`);
         }
 
+        var oldAsset: Asset  = (JSON.parse((await ctx.stub.getState(id)).toString()))
+        var updatedContent = (content!="") ? (content) : oldAsset.Content
+        var updatedHash = (content!="") ? (cryptojs.SHA256(content).toString(cryptojs.enc.Base64)) : oldAsset.hash
+        // var updatedAssessList = (AccessList!="") ? AccessList : []
         // overwriting original asset with new asset
-        const updatedAsset = {
-            ID: id,
-            Color: color,
-            Size: size,
-            Owner: owner,
-            AppraisedValue: appraisedValue,
+        const updatedAsset: Asset = {
+            ID: oldAsset.ID,
+            Content: updatedContent,
+            Owner: (owner!="") ? (owner) : oldAsset.Owner,
+            fileType: oldAsset.fileType,
+            AccessList: JSON.parse(accessList),
+            hash:  updatedHash
         };
+
         // we insert data in alphabetic order using 'json-stringify-deterministic' and 'sort-keys-recursive'
-        return ctx.stub.putState(id, Buffer.from(stringify(sortKeysRecursive(updatedAsset))));
+        await ctx.stub.putState(id, Buffer.from(stringify(sortKeysRecursive(updatedAsset))));
+
+        return stringify(oldAsset)
     }
 
     @Transaction()
@@ -107,6 +118,20 @@ export class AssetTransferContract extends Contract {
             throw new Error(`The asset ${id} does not exist`);
         }
         return ctx.stub.deleteState(id);
+    }
+
+    @Transaction()
+    public async TransferFile(ctx: Context, id: string, newOwner: string) {
+
+        const exists = await this.FileExists(ctx, id);
+        if (!exists) {
+            throw new Error(`The asset ${id} does not exist`);
+        }
+
+        let oldAsset: Asset = JSON.parse(await this.UpdateFile(ctx, id, "", newOwner, "[]"));
+
+        return oldAsset.Owner
+        
     }
 
     @Transaction(false)
